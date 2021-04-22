@@ -2,7 +2,7 @@ Source: ciel
 Section: python
 Priority: optional
 Maintainer: Derek Murray <derek.murray@cl.cam.ac.uk>
-Build-Depends: debhelper (>= 7.0.50~), python-support, python (>=2.6), python-cherrypy3 (>=3.1), python-pycurl, python-httplib2, python-simplejson, python-flup
+Build-Depends: debhelper (>= 7.0.50~), python-support, python (>=3), python-cherrypy3 (>=3.1), python-pycurl, python-httplib2, python-simplejson, python-flup
 XS-Python-Version: >=2.6
 Standards-Version: 3.9.1
 Homepage: http://www.cl.cam.ac.uk/netos/ciel
