@@ -25,7 +25,7 @@ from datetime import datetime
 # XXX: Hack because urlparse doesn't nicely support custom schemes.
 import urllib.parse
 from ciel.public.references import SW2_ConcreteReference, SW2_StreamReference,\
-    SW2_FetchReference, SW2_FixedReference, SWRealReference, SWErrorReference,\
+    SW2_FetchReference, SW2_FixedReference, SWURLReference, SWErrorReference,\
     SWDataValue, decode_datavalue
 import ciel
 from ciel.runtime.exceptions import ErrorReferenceError
@@ -114,7 +114,7 @@ class BlockStore:
             return self.filename(ref.id)
         
     def is_ref_local(self, ref):
-        assert isinstance(ref, SWRealReference)
+        assert isinstance(ref, SWURLReference)
 
         if isinstance(ref, SWErrorReference):
             raise ErrorReferenceError(ref)

@@ -12,7 +12,7 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 import hashlib
-from ciel.public.references import SW2_FutureReference, SWRealReference
+from ciel.public.references import SW2_FutureReference, SWURLReference
 import ciel
 import logging
 import threading
@@ -85,7 +85,7 @@ class SimpleExecutor(BaseExecutor):
         required = []
         
         try:
-            required.extend([x for x in args["command_line"] if isinstance(x, SWRealReference)])
+            required.extend([x for x in args["command_line"] if isinstance(x, SWURLReference)])
         except KeyError:
             pass
         
@@ -101,7 +101,7 @@ class SimpleExecutor(BaseExecutor):
     def check_args_valid(cls, args, n_outputs):
         if "inputs" in args:
             for ref in args["inputs"]:
-                if not isinstance(ref, SWRealReference):
+                if not isinstance(ref, SWURLReference):
                     raise BlameUserException("Simple executors need args['inputs'] to be a list of references. %s is not a reference." % ref)
 
     @staticmethod

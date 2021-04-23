@@ -12,7 +12,7 @@
 # WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-from ciel.public.references import SWRealReference
+from ciel.public.references import SWURLReference
 import stat
 import os
 import subprocess
@@ -52,7 +52,7 @@ class SWStdinoutExecutor(ProcessRunningExecutor):
         command_line = self.args["command_line"]
 
         for i, arg in enumerate(command_line):
-            if isinstance(arg, SWRealReference):
+            if isinstance(arg, SWURLReference):
                 # Command line argument has been passed in as a reference.
                 command_line[i] = retrieve_filename_for_ref(arg, self.task_record, False)
                 if i == 0:

@@ -15,7 +15,7 @@
 from __future__ import with_statement
 
 from ciel.public.references import \
-    SWRealReference, SW2_FutureReference, SWDataValue, \
+    SWURLReference, SW2_FutureReference, SWDataValue, \
     SWErrorReference, SW2_SweetheartReference,\
     SW2_FixedReference, SWReferenceJSONEncoder, SW2_ConcreteReference,\
     decode_datavalue_string, encode_datavalue, SW2_TombstoneReference
@@ -156,7 +156,7 @@ def hash_update_with_structure(hash, value):
             hash_update_with_structure(hash, dict_value)
             hash.update(',')
         hash.update('}')
-    elif isinstance(value, SWRealReference):
+    elif isinstance(value, SWURLReference):
         hash.update('ref')
         hash.update(value.id)
     else:

@@ -17,8 +17,7 @@ import base64
 import re
 
 
-
-class SWRealReference:
+class SWURLReference:
 
     def as_tuple(self):
         pass
@@ -38,7 +37,7 @@ def protobuf_to_netloc(netloc):
     return '%s:%d' % (netloc.hostname, netloc.port)
 
 
-class SWErrorReference(SWRealReference):
+class SWErrorReference(SWURLReference):
 
     def __init__(self, id, reason, details):
         self.id = id
@@ -49,7 +48,7 @@ class SWErrorReference(SWRealReference):
         return ('err', self.id, self.reason, self.details)
 
 
-class SW2_FutureReference(SWRealReference):
+class SW2_FutureReference(SWURLReference):
     """
     Used as a reference to a task that hasn't completed yet. The identifier is in a
     system-global namespace, and may be passed to other tasks or returned from
@@ -75,7 +74,7 @@ class SW2_FutureReference(SWRealReference):
         return 'SW2_FutureReference(%s)' % (repr(self.id),)
 
 
-class SW2_ConcreteReference(SWRealReference):
+class SW2_ConcreteReference(SWURLReference):
 
     def __init__(self, id, size_hint=None, location_hints=None):
         self.id = id
@@ -106,7 +105,7 @@ class SW2_ConcreteReference(SWRealReference):
 
     def __str__(self):
         return "<ConcreteRef: %s..., length %s, held in %d locations>" % (
-        self.id[:10], str(self.size_hint) if self.size_hint is not None else "Unknown", len(self.location_hints))
+            self.id[:10], str(self.size_hint) if self.size_hint is not None else "Unknown", len(self.location_hints))
 
     def __repr__(self):
         return 'SW2_ConcreteReference(%s, %s, %s)' % (repr(self.id), repr(self.size_hint), repr(self.location_hints))
@@ -134,10 +133,10 @@ class SW2_SweetheartReference(SW2_ConcreteReference):
 
     def __repr__(self):
         return 'SW2_SweetheartReference(%s, %s, %s, %s)' % (
-        repr(self.id), repr(self.sweetheart_netloc), repr(self.size_hint), repr(self.location_hints))
+            repr(self.id), repr(self.sweetheart_netloc), repr(self.size_hint), repr(self.location_hints))
 
 
-class SW2_FixedReference(SWRealReference):
+class SW2_FixedReference(SWURLReference):
 
     def __init__(self, id, fixed_netloc):
         self.id = id
@@ -156,7 +155,7 @@ class SW2_FixedReference(SWRealReference):
         return 'SW2_FixedReference(%s, %s)' % (repr(self.id), repr(self.fixed_netloc))
 
 
-class SW2_StreamReference(SWRealReference):
+class SW2_StreamReference(SWURLReference):
 
     def __init__(self, id, location_hints=None):
         self.id = id
@@ -204,10 +203,10 @@ class SW2_SocketStreamReference(SW2_StreamReference):
 
     def __repr__(self):
         return 'SW2_SocketStreamReference(%s, %s, %s)' % (
-        repr(self.id), repr(self.socket_netloc), repr(self.socket_port))
+            repr(self.id), repr(self.socket_netloc), repr(self.socket_port))
 
 
-class SW2_TombstoneReference(SWRealReference):
+class SW2_TombstoneReference(SWURLReference):
 
     def __init__(self, id, netlocs=None):
         self.id = id
@@ -232,7 +231,7 @@ class SW2_TombstoneReference(SWRealReference):
         return 'SW2_TombstoneReference(%s, %s)' % (repr(self.id), repr(self.netlocs))
 
 
-class SW2_CompletedReference(SWRealReference):
+class SW2_CompletedReference(SWURLReference):
 
     def __init__(self, id):
         self.id = id
@@ -250,7 +249,7 @@ class SW2_CompletedReference(SWRealReference):
         return "SW2_CompletedReference(%s)" % repr(self.id)
 
 
-class SW2_FetchReference(SWRealReference):
+class SW2_FetchReference(SWURLReference):
 
     def __init__(self, id, url, index=None):
         self.id = id
@@ -290,7 +289,7 @@ def remove_control_chars(s):
     return control_char_re.sub(lambda match: "[%d]" % ord(match.group(0)), s)
 
 
-class SWDataValue(SWRealReference):
+class SWDataValue(SWURLReference):
     """
     This is akin to a SW2_ConcreteReference which encapsulates its own data.
     The data is always a string, and must be decoded using block_store functions much like Concrete refs.
@@ -319,7 +318,7 @@ class SWDataValue(SWRealReference):
 class SWReferenceJSONEncoder(simplejson.JSONEncoder):
 
     def default(self, obj):
-        if isinstance(obj, SWRealReference):
+        if isinstance(obj, SWURLReference):
             return {'__ref__': obj.as_tuple()}
         else:
             return simplejson.JSONEncoder.default(self, obj)
@@ -406,4 +405,3 @@ def combine_references(original, update):
 
     # If we reach this point, we should ignore the update.
     return original
-

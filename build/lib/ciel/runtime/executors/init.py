@@ -15,7 +15,7 @@ from ciel.runtime.executors.base import BaseExecutor
 import pickle
 from ciel.runtime.exceptions import BlameUserException
 from ciel.runtime.executors import spawn_task_helper
-from ciel.public.references import SWRealReference
+from ciel.public.references import SWURLReference
 
 # XXX: Passing ref_of_string to get round a circular import. Should really move ref_of_string() to
 #      a nice utility package.
@@ -54,7 +54,7 @@ class InitExecutor(BaseExecutor):
                                                  task_private["start_handler"], 
                                                  True,
                                                  **args_dict)
-        if isinstance(initial_task_out_obj, SWRealReference):
+        if isinstance(initial_task_out_obj, SWURLReference):
             initial_task_out_refs = [initial_task_out_obj]
         else:
             initial_task_out_refs = list(initial_task_out_obj)
