@@ -12,9 +12,9 @@
 # WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-from __future__ import with_statement
+
 from ciel.runtime.plugins import AsynchronousExecutePlugin
-from ciel.runtime.exceptions import ReferenceUnavailableException, MissingInputException,\
+from ciel.runtime.exceptions import ReferenceUnavailableException, MissingInputException, \
     AbortedException
 from ciel.runtime.local_task_graph import LocalTaskGraph, LocalJobOutput
 from threading import Lock
@@ -27,8 +27,9 @@ import time
 from urllib.parse import urlparse
 from ciel.runtime.executors.base import BaseExecutor
 
+
 class TaskExecutorPlugin(AsynchronousExecutePlugin):
-    
+
     def __init__(self, bus, worker, master_proxy, execution_features, num_threads=1):
         AsynchronousExecutePlugin.__init__(self, bus, num_threads, "execute_task")
         self.worker = worker
@@ -37,7 +38,7 @@ class TaskExecutorPlugin(AsynchronousExecutePlugin):
         self.execution_features = execution_features
         self.current_task_set = None
         self._lock = Lock()
-    
+
     # Out-of-thread asynchronous notification calls
 
     def abort_task(self, task_id):
@@ -49,7 +50,8 @@ class TaskExecutorPlugin(AsynchronousExecutePlugin):
 
     def handle_input(self, input):
 
-        new_task_set = TaskSetExecutionRecord(input, self.block_store, self.master_proxy, self.execution_features, self.worker)
+        new_task_set = TaskSetExecutionRecord(input, self.block_store, self.master_proxy, self.execution_features,
+                                              self.worker)
         with self._lock:
             self.current_task_set = new_task_set
         new_task_set.run()
@@ -58,10 +60,12 @@ class TaskExecutorPlugin(AsynchronousExecutePlugin):
             if tr.success:
                 report_data.append((tr.task_descriptor["task_id"], tr.success, (tr.spawned_tasks, tr.published_refs)))
             else:
-                report_data.append((tr.task_descriptor["task_id"], tr.success, (tr.failure_reason, tr.failure_details, tr.failure_bindings)))
+                report_data.append((tr.task_descriptor["task_id"], tr.success,
+                                    (tr.failure_reason, tr.failure_details, tr.failure_bindings)))
         self.master_proxy.report_tasks(input['job'], input['task_id'], report_data)
         with self._lock:
             self.current_task_set = None
+
 
 class TaskSetExecutionRecord:
 
@@ -90,7 +94,8 @@ class TaskSetExecutionRecord:
                 ciel.log.error("No more runnable tasks", "TASKEXEC", logging.DEBUG)
                 break
             next_td["inputs"] = [self.retrieve_ref(ref) for ref in next_td["dependencies"]]
-            task_record = TaskExecutionRecord(next_td, self, self.execution_features, self.block_store, self.master_proxy, self.worker)
+            task_record = TaskExecutionRecord(next_td, self, self.execution_features, self.block_store,
+                                              self.master_proxy, self.worker)
             with self._lock:
                 self.current_task = task_record
                 self.current_td = next_td
@@ -126,6 +131,7 @@ class TaskSetExecutionRecord:
             if self.current_td["task_id"] == task_id:
                 self.current_task.executor.abort()
 
+
 class TaskExecutionRecord:
 
     def __init__(self, task_descriptor, task_set, execution_features, block_store, master_proxy, worker):
@@ -144,20 +150,20 @@ class TaskExecutionRecord:
         self.success = False
         self.aborted = False
         self._executor_lock = threading.Lock()
-        
+
         self.creation_time = datetime.datetime.now()
         self.start_time = None
         self.finish_time = None
         self.fetches = []
-        
+
     def as_timestamp(self, t):
         return time.mktime(t.timetuple()) + t.microsecond / 1e6
-        
+
     def get_profiling(self):
-        profile = {'CREATED' : self.as_timestamp(self.creation_time),
-                   'STARTED' : self.as_timestamp(self.start_time),
-                   'FINISHED' : self.as_timestamp(self.finish_time)}
-        
+        profile = {'CREATED': self.as_timestamp(self.creation_time),
+                   'STARTED': self.as_timestamp(self.start_time),
+                   'FINISHED': self.as_timestamp(self.finish_time)}
+
         fetches = {}
         for url, size in self.fetches:
             netloc = urlparse.urlparse(url).netloc
@@ -167,26 +173,29 @@ class TaskExecutionRecord:
                 fetches[netloc] = size
 
         profile['FETCHED'] = fetches
-        
+
         return profile
-        
+
     def add_completed_fetch(self, url, size):
         self.fetches.append((url, size))
-        
+
     def run(self):
-        ciel.engine.publish("worker_event", "Start execution " + repr(self.task_descriptor['task_id']) + " with handler " + self.task_descriptor['handler'])
-        ciel.log.error("Starting task %s with handler %s" % (str(self.task_descriptor['task_id']), self.task_descriptor['handler']), 'TASK', logging.DEBUG, False)
+        ciel.engine.publish("worker_event",
+                            "Start execution " + repr(self.task_descriptor['task_id']) + " with handler " +
+                            self.task_descriptor['handler'])
+        ciel.log.error("Starting task %s with handler %s" % (
+        str(self.task_descriptor['task_id']), self.task_descriptor['handler']), 'TASK', logging.DEBUG, False)
         try:
             self.start_time = datetime.datetime.now()
-            
+
             # Need to do this to bring task_private into the execution context.
             BaseExecutor.prepare_task_descriptor_for_execute(self.task_descriptor, self, self.block_store)
-        
+
             if "package_ref" in self.task_descriptor["task_private"]:
                 self.package_ref = self.task_descriptor["task_private"]["package_ref"]
             else:
                 self.package_ref = None
-            
+
             with self._executor_lock:
                 if self.aborted:
                     raise AbortedException()
@@ -195,13 +204,15 @@ class TaskExecutionRecord:
 
             self.executor.run(self.task_descriptor, self)
             self.finish_time = datetime.datetime.now()
-            
+
             self.success = not self.failed
-            
+
             ciel.engine.publish("worker_event", "Completed execution " + repr(self.task_descriptor['task_id']))
-            ciel.log.error("Completed task %s with handler %s" % (str(self.task_descriptor['task_id']), self.task_descriptor['handler']), 'TASK', logging.DEBUG, False)
+            ciel.log.error("Completed task %s with handler %s" % (
+            str(self.task_descriptor['task_id']), self.task_descriptor['handler']), 'TASK', logging.DEBUG, False)
         except MissingInputException as mie:
-            ciel.log.error('Missing input in task %s with handler %s' % (str(self.task_descriptor['task_id']), self.task_descriptor['handler']), 'TASKEXEC', logging.ERROR, True)
+            ciel.log.error('Missing input in task %s with handler %s' % (
+            str(self.task_descriptor['task_id']), self.task_descriptor['handler']), 'TASKEXEC', logging.ERROR, True)
             self.failure_bindings = mie.bindings
             self.failure_details = ""
             self.failure_reason = "MISSING_INPUT"
@@ -212,8 +223,9 @@ class TaskExecutionRecord:
             self.finish_time = datetime.datetime.now()
             self.success = False
             raise
-        except Exception, e:
-            ciel.log.error("Error in task %s with handler %s" % (str(self.task_descriptor['task_id']), self.task_descriptor['handler']), 'TASK', logging.ERROR, True)
+        except Exception as e:
+            ciel.log.error("Error in task %s with handler %s" % (
+            str(self.task_descriptor['task_id']), self.task_descriptor['handler']), 'TASK', logging.ERROR, True)
             self.failure_bindings = dict()
             self.failure_details = getattr(e, "message", '')
             self.failure_reason = "RUNTIME_EXCEPTION"
@@ -227,7 +239,7 @@ class TaskExecutionRecord:
                 self.executor.cleanup()
                 del self.executor
                 self.executor = None
-    
+
     def publish_ref(self, ref):
         self.published_refs.append(ref)
         self.task_set.publish_ref(ref)
@@ -242,7 +254,7 @@ class TaskExecutionRecord:
         ret = sha.hexdigest()
         self.spawn_counter += 1
         return ret
-    
+
     def create_published_output_name(self, prefix=""):
         if prefix == "":
             prefix = "pub"
