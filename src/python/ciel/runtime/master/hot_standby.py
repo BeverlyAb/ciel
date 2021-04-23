@@ -11,13 +11,13 @@
 # WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-from urlparse import urljoin
+from urllib.parse import urljoin
 import httplib2
 import logging
 import simplejson
 
 from cherrypy.process import plugins
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from ciel.runtime.plugins import THREAD_TERMINATOR
 import threading
 import ciel

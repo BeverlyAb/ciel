@@ -12,7 +12,7 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 from __future__ import with_statement
-from Queue import Queue
+from queue import Queue
 from ciel.public.references import SWReferenceJSONEncoder
 from ciel.runtime.pycurl_rpc import post_string_noreturn, get_string
 import ciel
@@ -22,7 +22,7 @@ import random
 import simplejson
 import threading
 import uuid
-from urlparse import urlparse
+from urllib.parse import urlparse
 
 class FeatureQueues:
     def __init__(self):

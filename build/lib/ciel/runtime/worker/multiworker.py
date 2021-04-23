@@ -15,7 +15,7 @@ from ciel.runtime.exceptions import ReferenceUnavailableException,\
     AbortedException
 from ciel.runtime.local_task_graph import LocalTaskGraph, LocalJobOutput
 from ciel.runtime.task_executor import TaskExecutionRecord
-import Queue
+import queue
 import ciel
 import logging
 import random

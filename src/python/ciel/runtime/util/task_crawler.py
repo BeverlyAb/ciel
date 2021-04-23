@@ -12,15 +12,15 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from ciel.public.references import json_decode_object_hook
-from urlparse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse
 import httplib2
 import simplejson
 import sys
 
-def sanitise_job_url(root_url):
 
+def sanitise_job_url(root_url):
     h = httplib2.Http()
 
     # Postel's Law!
@@ -42,13 +42,13 @@ def sanitise_job_url(root_url):
         job_descriptor = simplejson.loads(content)
         root_url = urljoin(root_url, '/control/task/%s/%s' % (job_descriptor['job_id'], job_descriptor['root_task']))
     elif not url_parts.path.startswith('/control/task/'):
-        print >>sys.stderr, "Error: must specify task or job URL."
+        print("Error: must specify task or job URL.", file=sys.stderr)
         raise Exception()
-        
+
     return root_url
 
-def task_descriptors_for_job(job_url, sanitise=True):
 
+def task_descriptors_for_job(job_url, sanitise=True):
     h = httplib2.Http()
     q = Queue()
     q.put(sanitise_job_url(job_url) if sanitise else job_url)
@@ -59,19 +59,20 @@ def task_descriptors_for_job(job_url, sanitise=True):
         except Empty:
             break
         _, content = h.request(url)
-        
+
         descriptor = simplejson.loads(content, object_hook=json_decode_object_hook)
 
         for child in descriptor["children"]:
             q.put(urljoin(url, child))
-            
+
         yield descriptor
 
+
 def main():
-    
     root_url = sys.argv[1]
-        
-    print 'task_id type parent created_at assigned_at committed_at duration num_children num_dependencies num_outputs final_state worker total_bytes_fetched'
+
+    print(
+        'task_id type parent created_at assigned_at committed_at duration num_children num_dependencies num_outputs final_state worker total_bytes_fetched')
     for descriptor in task_descriptors_for_job(root_url):
 
         try:
@@ -82,9 +83,9 @@ def main():
         task_id = descriptor["task_id"]
         parent = descriptor["parent"]
 
-        #try:
-        #    worker = descriptor["worker"] 
-        #except KeyError:
+        # try:
+        #    worker = descriptor["worker"]
+        # except KeyError:
         #    worker = None
 
         created_at = None
@@ -105,17 +106,21 @@ def main():
         duration = None
 
         for (time, state) in descriptor["history"]:
-            #print time, state
+            # print time, state
             if state == 'CREATED':
                 created_at = time
             elif state == 'COMMITTED':
                 committed_at = time
-                duration = committed_at - assigned_at if (committed_at is not None and assigned_at is not None) else None
-                print task_id, type, parent, created_at, assigned_at, committed_at, duration, num_children, num_dependencies, num_outputs, 'COMMITTED', worker, total_bytes_fetched
+                duration = committed_at - assigned_at if (
+                            committed_at is not None and assigned_at is not None) else None
+                print(task_id, type, parent, created_at, assigned_at, committed_at, duration, num_children,
+                      num_dependencies, num_outputs, 'COMMITTED', worker, total_bytes_fetched)
             elif state == 'FAILED':
                 committed_at = time
-                duration = committed_at - assigned_at if (committed_at is not None and assigned_at is not None) else None
-                print task_id, type, parent, created_at, assigned_at, committed_at, duration, num_children, num_dependencies, num_outputs, 'FAILED', worker, total_bytes_fetched
+                duration = committed_at - assigned_at if (
+                            committed_at is not None and assigned_at is not None) else None
+                print(task_id, type, parent, created_at, assigned_at, committed_at, duration, num_children,
+                      num_dependencies, num_outputs, 'FAILED', worker, total_bytes_fetched)
             else:
                 try:
                     if state[0] == 'ASSIGNED':
@@ -128,12 +133,11 @@ def main():
                     pass
 
         if committed_at is None:
-            print task_id, type, parent, created_at, assigned_at, committed_at, duration, num_children, num_dependencies, num_outputs, final_state, worker, total_bytes_fetched
+            print(task_id, type, parent, created_at, assigned_at, committed_at, duration, num_children,
+                  num_dependencies, num_outputs, final_state, worker, total_bytes_fetched)
 
-        
-        #print task_id, type, parent, created_at, assigned_at, committed_at, duration, num_children, num_dependencies, num_outputs, final_state, worker, total_bytes_fetched
+        # print task_id, type, parent, created_at, assigned_at, committed_at, duration, num_children, num_dependencies, num_outputs, final_state, worker, total_bytes_fetched
 
 
-            
 if __name__ == '__main__':
     main()

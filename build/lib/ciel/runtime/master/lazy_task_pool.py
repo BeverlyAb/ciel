@@ -12,7 +12,7 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-from Queue import Queue
+from queue import Queue
 from cherrypy.process import plugins
 from ciel.runtime.master.job_pool import Job
 from ciel.public.references import SW2_FutureReference, \

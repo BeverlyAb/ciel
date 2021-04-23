@@ -14,7 +14,7 @@
 
 from ciel.runtime.task_graph import DynamicTaskGraph, TaskGraphUpdate
 from ciel.runtime.task import build_taskpool_task_from_descriptor
-import Queue
+import queue
 import ciel
 import logging
 

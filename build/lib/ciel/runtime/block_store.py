@@ -23,13 +23,13 @@ import threading
 from datetime import datetime
 
 # XXX: Hack because urlparse doesn't nicely support custom schemes.
-import urlparse
+import urllib.parse
 from ciel.public.references import SW2_ConcreteReference, SW2_StreamReference,\
     SW2_FetchReference, SW2_FixedReference, SWRealReference, SWErrorReference,\
     SWDataValue, decode_datavalue
 import ciel
 from ciel.runtime.exceptions import ErrorReferenceError
-urlparse.uses_netloc.append("swbs")
+urllib.parse.uses_netloc.append("swbs")
 
 BLOCK_LIST_RECORD_STRUCT = struct.Struct("!120pQ")
 
@@ -41,13 +41,13 @@ http_response_regex = re.compile("^HTTP/1.1 ([0-9]+)")
 singleton_blockstore = None
 
 def get_netloc_for_sw_url(url):
-    return urlparse.urlparse(url).netloc
+    return urllib.parse.urllib.parse(url).netloc
 
 def get_id_for_sw_url(url):
-    return urlparse.urlparse(url).path
+    return urllib.parse.urllib.parse(url).path
 
 def sw_to_external_url(url):
-    parsed_url = urlparse.urlparse(url)
+    parsed_url = urllib.parse.urllib.parse(url)
     if parsed_url.scheme == 'swbs':
         id = parsed_url.path[1:]
         return 'http://%s/data/%s' % (parsed_url.netloc, id)
@@ -161,7 +161,7 @@ class BlockStore:
             return urls[0]
         else:
             for url in enumerate(urls):
-                parsed_url = urlparse.urlparse(url)
+                parsed_url = urllib.parse.urllib.parse(url)
                 if parsed_url.netloc == self.netloc:
                     return url
             return random.choice(urls)

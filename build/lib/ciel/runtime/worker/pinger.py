@@ -21,7 +21,7 @@ Created on 4 Feb 2010
 '''
 
 from cherrypy.process import plugins
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from ciel.runtime.plugins import THREAD_TERMINATOR
 import threading
     
