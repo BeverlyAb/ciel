@@ -34,7 +34,7 @@ class LighttpdAdapter(plugins.SimplePlugin):
 
     def start(self):
         with open(self.lighty_conf, "w") as conf_out:
-            print >>conf_out, """
+            print("""
 # Skywriting lighttpd configuration file
 
 ## modules to load
@@ -137,7 +137,7 @@ fastcgi.server             = ( "/control/" =>
 
 # Disable stat-cache, as files are liable to change size under lighty
 server.stat-cache-engine = "disable"
-""".format(ciel_port=self.local_port, ciel_log=self.lighty_ancillary_dir, ciel_static_content=self.static_content_root, ciel_socket=self.socket_path)
+""".format(ciel_port=self.local_port, ciel_log=self.lighty_ancillary_dir, ciel_static_content=self.static_content_root, ciel_socket=self.socket_path), file=conf_out)
         self.lighty_proc = subprocess.Popen(["lighttpd", "-D", "-f", self.lighty_conf])
 
     def stop(self):

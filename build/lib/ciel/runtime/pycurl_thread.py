@@ -84,7 +84,7 @@ class SelectableEventQueue:
 
     def notify_event(self):
         try:
-            os.write(self.event_pipe_write, "X")
+            os.write(self.event_pipe_write, "X".encode())
         except OSError as e:
             if e.errno == EAGAIN:
                 # Event pipe is full -- that's fine, the thread will wake next time it selects.
