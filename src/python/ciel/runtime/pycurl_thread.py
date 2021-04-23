@@ -22,10 +22,10 @@ import select
 
 from errno import EAGAIN
 
+
 class pycURLContext:
 
     def __init__(self, url, result_callback):
-
         self.result_callback = result_callback
         self.url = url
 
@@ -57,6 +57,7 @@ class pycURLContext:
     def cleanup(self):
         self.curl_ctx.close()
 
+
 class SelectableEventQueue:
 
     def set_fd_nonblocking(self, fd):
@@ -73,9 +74,9 @@ class SelectableEventQueue:
 
     def drain_event_pipe(self):
         try:
-            while(len(os.read(self.event_pipe_read, 1024)) >= 0):
+            while (len(os.read(self.event_pipe_read, 1024)) >= 0):
                 pass
-        except OSError, e:
+        except OSError as e:
             if e.errno == EAGAIN:
                 return
             else:
@@ -84,7 +85,7 @@ class SelectableEventQueue:
     def notify_event(self):
         try:
             os.write(self.event_pipe_write, "X")
-        except OSError, e:
+        except OSError as e:
             if e.errno == EAGAIN:
                 # Event pipe is full -- that's fine, the thread will wake next time it selects.
                 return
@@ -113,6 +114,7 @@ class SelectableEventQueue:
     def cleanup(self):
         os.close(self.event_pipe_read)
         os.close(self.event_pipe_write)
+
 
 class pycURLThread:
 
@@ -169,7 +171,7 @@ class pycURLThread:
 
     def _stop_thread(self):
         self.dying = True
-    
+
     def stop(self):
         self.event_queue.post_event(self._stop_thread)
 
@@ -195,7 +197,7 @@ class pycURLThread:
                     for c in ok_list:
                         self.curl_ctx.remove_handle(c)
                         response_code = c.getinfo(pycurl.RESPONSE_CODE)
-#                        ciel.log.error("Curl success: %s -- %s" % (c.ctx.description, str(response_code)))
+                        #                        ciel.log.error("Curl success: %s -- %s" % (c.ctx.description, str(response_code)))
                         if str(response_code).startswith("2"):
                             c.ctx.success()
                         else:
@@ -204,8 +206,8 @@ class pycURLThread:
                         self.active_fetches.remove(c.ctx)
                     for c, errno, errmsg in err_list:
                         self.curl_ctx.remove_handle(c)
-                        ciel.log.error("Curl failure: %s, %s" % 
-                                           (str(errno), str(errmsg)), "CURL_FETCH", logging.WARNING)
+                        ciel.log.error("Curl failure: %s, %s" %
+                                       (str(errno), str(errmsg)), "CURL_FETCH", logging.WARNING)
                         c.ctx.failure(errno, errmsg)
                         self.active_fetches.remove(c.ctx)
                     if num_q == 0:
@@ -237,24 +239,31 @@ class pycURLThread:
             for source in self.event_sources:
                 source.notify_fds(active_read, active_write, active_exn)
 
+
 singleton_pycurl_thread = None
+
 
 def create_pycurl_thread(bus):
     global singleton_pycurl_thread
     singleton_pycurl_thread = pycURLThread()
     singleton_pycurl_thread.subscribe(bus)
 
+
 def do_from_curl_thread(x):
     singleton_pycurl_thread.do_from_curl_thread(x)
+
 
 def do_from_curl_thread_sync(x):
     return singleton_pycurl_thread.do_from_curl_thread_sync(x)
 
+
 def add_fetch(x):
     singleton_pycurl_thread.add_fetch(x)
 
+
 def remove_fetch(x):
     singleton_pycurl_thread.remove_fetch(x)
+
 
 def add_event_source(src):
     do_from_curl_thread(lambda: singleton_pycurl_thread.add_event_source(src))

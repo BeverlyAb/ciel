@@ -18,7 +18,7 @@ from ciel.public.references import SWReferenceJSONEncoder,json_decode_object_hoo
 from ciel.runtime.object_cache import retrieve_object_for_ref, decoders
 from optparse import OptionParser
 from ciel.runtime.block_store import get_fetch_urls_for_ref
-from StringIO import StringIO
+from io import StringIO
 import sys
 from ciel.runtime.executors.init import build_init_descriptor
 

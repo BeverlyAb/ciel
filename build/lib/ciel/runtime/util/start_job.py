@@ -1,7 +1,7 @@
 import sys
 import simplejson
 import load
-import urllib.parse
+import urlparse
 import httplib2
 import pickle
 import time
@@ -11,9 +11,9 @@ import glob
 import ciel.config
 from ciel.runtime.util.sw_pprint import sw_pprint
 
-from ciel.public.references import SWReferenceJSONEncoder, json_decode_object_hook, \
-    SW2_FutureReference, SWDataValue, SWErrorReference, \
-    SW2_SocketStreamReference, SW2_StreamReference, SW2_ConcreteReference, \
+from ciel.public.references import SWReferenceJSONEncoder,json_decode_object_hook,\
+    SW2_FutureReference, SWDataValue, SWErrorReference,\
+    SW2_SocketStreamReference, SW2_StreamReference, SW2_ConcreteReference,\
     build_reference_from_tuple
 from ciel.runtime.object_cache import retrieve_object_for_ref, decoders
 from optparse import OptionParser
@@ -24,12 +24,11 @@ from ciel.runtime.executors.init import build_init_descriptor
 
 http = httplib2.Http()
 
-
 def now_as_timestamp():
     return (lambda t: (time.mktime(t.timetuple()) + t.microsecond / 1e6))(datetime.datetime.now())
 
-
 def resolve_vars(value, callback_map):
+    
     def resolve_vars_val(value):
         if isinstance(value, list):
             return [resolve_vars_val(v) for v in value]
@@ -37,36 +36,33 @@ def resolve_vars(value, callback_map):
             for callback_key in callback_map:
                 if callback_key in value:
                     return callback_map[callback_key](value)
-            return dict([(resolve_vars_val(k), resolve_vars_val(v)) for (k, v) in list(value.items())])
+            return dict([(resolve_vars_val(k), resolve_vars_val(v)) for (k, v) in value.items()])
         else:
             return value
 
     return resolve_vars_val(value)
 
-
 def ref_of_string(val, master_uri):
-    master_data_uri = urllib.parse.urljoin(master_uri, "control/data/")
-    master_netloc = urllib.parse.urlparse(master_uri).netloc
+    master_data_uri = urlparse.urljoin(master_uri, "control/data/")
+    master_netloc = urlparse.urlparse(master_uri).netloc
     (_, content) = http.request(master_data_uri, "POST", val)
     return simplejson.loads(content, object_hook=json_decode_object_hook)
-
-
+    
 def ref_of_object(key, val, package_path, master_uri):
     if "__ref__" in val:
         return build_reference_from_tuple(val['__ref__'])
     if "filenamelist" in val:
-
+        
         with open(val["filenamelist"]) as listfile:
             filenamelist = [x.strip() for x in listfile.readlines()]
-
+        
         try:
             replication = val["replication"]
         except KeyError:
             replication = 1
         return load.do_uploads(master_uri, filenamelist, replication=replication)
     if "filename" not in val and "urls" not in val:
-        raise Exception(
-            "start_job can't handle resources that aren't files yet; package entries must have a 'filename' member")
+        raise Exception("start_job can't handle resources that aren't files yet; package entries must have a 'filename' member")
     if "filename" in val and not os.path.isabs(val["filename"]):
         # Construct absolute path by taking it as relative to package descriptor
         if "cwd" in val and val["cwd"]:
@@ -83,8 +79,7 @@ def ref_of_object(key, val, package_path, master_uri):
         except KeyError:
             repeat = 1
         if 'urls' in val:
-            return load.do_uploads(master_uri, [], urllist=val["urls"], do_urls=True, replication=replication,
-                                   repeat=repeat)
+            return load.do_uploads(master_uri, [], urllist=val["urls"], do_urls=True, replication=replication, repeat=repeat)
         else:
             return load.do_uploads(master_uri, [val["filename"]], do_urls=True, replication=replication)
     elif "index" in val and val["index"]:
@@ -94,19 +89,17 @@ def ref_of_object(key, val, package_path, master_uri):
             file_data = infile.read()
         return ref_of_string(file_data, master_uri)
 
+def task_descriptor_for_package_and_initial_task(package_dict, start_handler, start_args, package_path, master_uri, args):
 
-def task_descriptor_for_package_and_initial_task(package_dict, start_handler, start_args, package_path, master_uri,
-                                                 args):
     def resolve_arg(value):
         try:
             return args[value["__args__"]]
         except IndexError:
             if "default" in value:
-                print("Positional argument", value["__args__"], "not specified; using default", value["default"],
-                      file=sys.stderr)
+                print >>sys.stderr, "Positional argument", value["__args__"], "not specified; using default", value["default"]
                 return value["default"]
             else:
-                print("Mandatory argument", value["__args__"], "not specified.", file=sys.stderr)
+                print >>sys.stderr, "Mandatory argument", value["__args__"], "not specified."
                 sys.exit(-1)
 
     def resolve_env(value):
@@ -114,11 +107,10 @@ def task_descriptor_for_package_and_initial_task(package_dict, start_handler, st
             return os.environ[value["__env__"]]
         except KeyError:
             if "default" in value:
-                print("Environment variable", value["__env__"], "not specified; using default", value["default"],
-                      file=sys.stderr)
+                print >>sys.stderr, "Environment variable", value["__env__"], "not specified; using default", value["default"]
                 return value["default"]
             else:
-                print("Mandatory environment variable", value["__env__"], "not specified.", file=sys.stderr)
+                print >>sys.stderr, "Mandatory environment variable", value["__env__"], "not specified."
                 sys.exit(-1)
 
     env_and_args_callbacks = {"__args__": resolve_arg,
@@ -126,9 +118,8 @@ def task_descriptor_for_package_and_initial_task(package_dict, start_handler, st
     package_dict = resolve_vars(package_dict, env_and_args_callbacks)
     start_args = resolve_vars(start_args, env_and_args_callbacks)
 
-    submit_package_dict = dict(
-        [(k, ref_of_object(k, v, package_path, master_uri)) for (k, v) in list(package_dict.items())])
-    # for key, ref in submit_package_dict.items():
+    submit_package_dict = dict([(k, ref_of_object(k, v, package_path, master_uri)) for (k, v) in package_dict.items()])
+    #for key, ref in submit_package_dict.items():
     #    print >>sys.stderr, key, '-->', simplejson.dumps(ref, cls=SWReferenceJSONEncoder)
     package_ref = ref_of_string(pickle.dumps(submit_package_dict), master_uri)
 
@@ -136,29 +127,25 @@ def task_descriptor_for_package_and_initial_task(package_dict, start_handler, st
 
     return build_init_descriptor(start_handler, resolved_args, package_ref, master_uri, ref_of_string)
 
-
 def submit_job_for_task(task_descriptor, master_uri, job_options={}):
-    payload = {"root_task": task_descriptor, "job_options": job_options}
-    master_task_submit_uri = urllib.parse.urljoin(master_uri, "control/job/")
+    payload = {"root_task" : task_descriptor, "job_options" : job_options}
+    master_task_submit_uri = urlparse.urljoin(master_uri, "control/job/")
     (_, content) = http.request(master_task_submit_uri, "POST", simplejson.dumps(payload, cls=SWReferenceJSONEncoder))
     try:
         return simplejson.loads(content)
     except ValueError:
-        print('Error submitting job', file=sys.stderr)
-        print(content, file=sys.stderr)
-        sys.exit(-1)
-
+        print >>sys.stderr, 'Error submitting job'
+        print >>sys.stderr, content
+        sys.exit(-1)    
 
 def submit_job_with_package(package_dict, start_handler, start_args, job_options, package_path, master_uri, args):
-    task_descriptor = task_descriptor_for_package_and_initial_task(package_dict, start_handler, start_args,
-                                                                   package_path, master_uri, args)
+    task_descriptor = task_descriptor_for_package_and_initial_task(package_dict, start_handler, start_args, package_path, master_uri, args)
     return submit_job_for_task(task_descriptor, master_uri, job_options)
 
-
 def await_job(jobid, master_uri, timeout=None):
-    notify_url = urllib.parse.urljoin(master_uri, "control/job/%s/completion" % jobid)
+    notify_url = urlparse.urljoin(master_uri, "control/job/%s/completion" % jobid)
     if timeout is not None:
-        payload = simplejson.dumps({'timeout': timeout})
+        payload = simplejson.dumps({'timeout' : timeout})
     else:
         payload = None
     completion_result = None
@@ -168,34 +155,31 @@ def await_job(jobid, master_uri, timeout=None):
             completion_result = simplejson.loads(content, object_hook=json_decode_object_hook)
             break
         except:
-            print("Decode failed; retrying fetch...", file=sys.stderr)
+            print >>sys.stderr, "Decode failed; retrying fetch..."
             pass
 
     if timeout is not None:
         return completion_result
 
     if completion_result is not None and "error" in completion_result:
-        print("Job failed: %s" % completion_result["error"], file=sys.stderr)
+        print >>sys.stderr, "Job failed: %s" % completion_result["error"]
         sys.exit(-1)
     elif completion_result is not None:
         return completion_result["result_ref"]
     else:
-        print('Error receiving result from master', file=sys.stderr)
-
-
+        print >>sys.stderr, 'Error receiving result from master'
+    
 def external_get_real_ref(ref, jobid, master_uri):
-    fetch_url = urllib.parse.urljoin(master_uri, "control/ref/%s/%s" % (jobid, ref.id))
+    fetch_url = urlparse.urljoin(master_uri, "control/ref/%s/%s" % (jobid, ref.id))
     _, content = httplib2.Http().request(fetch_url)
     real_ref = simplejson.loads(content, object_hook=json_decode_object_hook)
-    print("Resolved", ref, "-->", real_ref, file=sys.stderr)
-    return real_ref
-
-
+    print >>sys.stderr, "Resolved", ref, "-->", real_ref
+    return real_ref 
+    
 def simple_retrieve_object_for_ref(ref, decoder, jobid, master_uri):
     if isinstance(ref, SWErrorReference):
         raise Exception("Can't decode %s" % ref)
-    if isinstance(ref, SW2_FutureReference) or isinstance(ref, SW2_StreamReference) or isinstance(ref,
-                                                                                                  SW2_SocketStreamReference):
+    if isinstance(ref, SW2_FutureReference) or isinstance(ref, SW2_StreamReference) or isinstance(ref, SW2_SocketStreamReference):
         ref = external_get_real_ref(ref, jobid, master_uri)
     if isinstance(ref, SWDataValue):
         return retrieve_object_for_ref(ref, decoder, None)
@@ -205,11 +189,10 @@ def simple_retrieve_object_for_ref(ref, decoder, jobid, master_uri):
         return decoders[decoder](StringIO(content))
     else:
         raise Exception("Don't know how to retrieve a %s" % ref)
-
-
+    
 def recursive_decode(to_decode, template, jobid, master_uri):
     if isinstance(template, dict):
-
+        
         try:
             decode_method = template["__decode_ref__"]
             decoded_value = simple_retrieve_object_for_ref(to_decode, decode_method, jobid, master_uri)
@@ -220,21 +203,21 @@ def recursive_decode(to_decode, template, jobid, master_uri):
                 return recursive_decode(decoded_value, recurse_template, jobid, master_uri)
         except KeyError:
             pass
-
+    
         try:
             concat_list = template["__concat__"]
             try:
                 decode_method = template["encoding"]
             except KeyError:
                 decode_method = "json"
-            print(to_decode)
+            print to_decode
             decoded_value = [simple_retrieve_object_for_ref(x, decode_method, jobid, master_uri) for x in to_decode]
             assert isinstance(concat_list, list)
             assert isinstance(decoded_value, list)
             return "".join(recursive_decode(decoded_value, concat_list, jobid, master_uri))
         except KeyError:
             pass
-
+        
         if not isinstance(to_decode, dict):
             raise Exception("%s and %s: Type mismatch" % to_decode, template)
         ret_dict = {}
@@ -256,28 +239,23 @@ def recursive_decode(to_decode, template, jobid, master_uri):
                 result_list.append(recursive_decode(elem_decode, elem_template, jobid, master_uri))
         return result_list
 
-
 def jar(my_args=sys.argv):
-    parser = OptionParser(usage='Usage: ciel jar [options] JAR_FILE CLASS_NAME [args...]')
-    parser.add_option("-m", "--master", action="store", dest="master", help="URI of the cluster master",
-                      metavar="MASTER", default=ciel.config.get('cluster', 'master', 'http://localhost:8000'))
-    parser.add_option("-j", "--extra-jar", action="append", dest="extra_jars",
-                      help="Filename of additional JAR to load", metavar="JAR_FILE", default=[])
-    parser.add_option("-P", "--package", action="append", dest="package", help="Additional file to upload",
-                      metavar="ID=FILENAME", default=[])
-    parser.add_option("-n", "--num-outputs", action="store", dest="num_outputs", help="Number of outputs for root task",
-                      type="int", metavar="N", default=1)
-    parser.add_option("-L", "--jar-lib", action="store", dest="jar_lib", help="Directory containing CIEL bindings JARs",
-                      type="str", metavar="PATH", default=ciel.config.get('java', 'jar_lib'))
 
+    parser = OptionParser(usage='Usage: ciel jar [options] JAR_FILE CLASS_NAME [args...]')
+    parser.add_option("-m", "--master", action="store", dest="master", help="URI of the cluster master", metavar="MASTER", default=ciel.config.get('cluster', 'master', 'http://localhost:8000'))
+    parser.add_option("-j", "--extra-jar", action="append", dest="extra_jars", help="Filename of additional JAR to load", metavar="JAR_FILE", default=[])
+    parser.add_option("-P", "--package", action="append", dest="package", help="Additional file to upload", metavar="ID=FILENAME", default=[])
+    parser.add_option("-n", "--num-outputs", action="store", dest="num_outputs", help="Number of outputs for root task", type="int", metavar="N", default=1)
+    parser.add_option("-L", "--jar-lib", action="store", dest="jar_lib", help="Directory containing CIEL bindings JARs", type="str", metavar="PATH", default=ciel.config.get('java', 'jar_lib'))
+ 
     (options, args) = parser.parse_args(args=my_args)
     master_uri = options.master
 
     if master_uri is None or master_uri == "":
-        print(("Must specify a master with -m or `ciel config --set cluster.master URL`"), file=sys.stderr)
+        print >>sys.stderr, ("Must specify a master with -m or `ciel config --set cluster.master URL`")
         sys.exit(-1)
     elif len(args) < 2:
-        print("Must specify a fully-qualified class to run", file=sys.stderr)
+        print >>sys.stderr, "Must specify a fully-qualified class to run"
         parser.print_help()
         sys.exit(-1)
 
@@ -286,9 +264,9 @@ def jar(my_args=sys.argv):
     # Consult the config to see where the standard JARs are installed.
     jar_path = options.jar_lib
     if jar_path is None:
-        print("Could not find CIEL bindings. Set the JAR libary path using one of:", file=sys.stderr)
-        print("\tciel jar (--jar-lib|-L) PATH ...", file=sys.stderr)
-        print("\tciel config --set java.jar_lib PATH", file=sys.stderr)
+        print >>sys.stderr, "Could not find CIEL bindings. Set the JAR libary path using one of:"
+        print >>sys.stderr, "\tciel jar (--jar-lib|-L) PATH ..."
+        print >>sys.stderr, "\tciel config --set java.jar_lib PATH"
         sys.exit(-1)
 
     for jar_file in glob.glob(os.path.join(jar_path, '*.jar')):
@@ -300,7 +278,7 @@ def jar(my_args=sys.argv):
     def upload_jar(filename):
         with open(filename, 'r') as infile:
             return ref_of_string(infile.read(), master_uri)
-
+        
     jar_refs = [upload_jar(j) for j in jars]
 
     package_dict = {}
@@ -311,23 +289,24 @@ def jar(my_args=sys.argv):
 
     package_ref = ref_of_string(pickle.dumps(package_dict), master_uri)
 
-    args = {'jar_lib': jar_refs,
-            'class_name': class_name,
-            'args': args,
-            'n_outputs': options.num_outputs}
+    args = {'jar_lib' : jar_refs,
+            'class_name' : class_name,
+            'args' : args,
+            'n_outputs' : options.num_outputs}
 
     init_descriptor = build_init_descriptor("java2", args, package_ref, master_uri, ref_of_string)
 
     job_descriptor = submit_job_for_task(init_descriptor, master_uri)
 
-    job_url = urllib.parse.urljoin(master_uri, "control/browse/job/%s" % job_descriptor['job_id'])
+    job_url = urlparse.urljoin(master_uri, "control/browse/job/%s" % job_descriptor['job_id'])
 
     result = await_job(job_descriptor['job_id'], master_uri)
+
 
     try:
         reflist = simple_retrieve_object_for_ref(result, "json", job_descriptor['job_id'], master_uri)
     except:
-        print("Error getting list of references as a result.", file=sys.stderr)
+        print >>sys.stderr, "Error getting list of references as a result."
 
     try:
         j_return = retrieve_object_for_ref(reflist[0], "json", None)
@@ -335,32 +314,31 @@ def jar(my_args=sys.argv):
         try:
             j_return = retrieve_object_for_ref(reflist[0], "noop", None)
         except:
-            print("Error parsing job result.", file=sys.stderr)
+            print >>sys.stderr, "Error parsing job result."
             sys.exit(-1)
 
-    print(j_return)
-
+    print j_return
 
 def main(my_args=sys.argv):
-    parser = OptionParser(usage='Usage: ciel run [options] PACKAGE_FILE')
-    parser.add_option("-m", "--master", action="store", dest="master", help="URI of the cluster master",
-                      metavar="MASTER", default=ciel.config.get('cluster', 'master', 'http://localhost:8000'))
 
+    parser = OptionParser(usage='Usage: ciel run [options] PACKAGE_FILE')
+    parser.add_option("-m", "--master", action="store", dest="master", help="URI of the cluster master", metavar="MASTER", default=ciel.config.get('cluster', 'master', 'http://localhost:8000'))
+    
     (options, args) = parser.parse_args(args=my_args)
     master_uri = options.master
 
     if master_uri is None or master_uri == "":
-        print(("Must specify a master with -m or `ciel config --set cluster.master URL`"), file=sys.stderr)
+        print >>sys.stderr, ("Must specify a master with -m or `ciel config --set cluster.master URL`")
         sys.exit(-1)
     elif len(args) < 1:
-        print("Must specify a package file to run", file=sys.stderr)
+        print >>sys.stderr, "Must specify a package file to run"
         parser.print_help()
         sys.exit(-1)
-
+    
     with open(args[-1], "r") as package_file:
         job_dict = simplejson.load(package_file)
 
-    package_dict = job_dict.get("package", {})
+    package_dict = job_dict.get("package",{})
     start_dict = job_dict["start"]
     start_handler = start_dict["handler"]
     start_args = start_dict["args"]
@@ -368,55 +346,52 @@ def main(my_args=sys.argv):
         job_options = job_dict["options"]
     except KeyError:
         job_options = {}
-
+    
     (package_path, _) = os.path.split(args[-1])
 
-    # print "BEFORE_SUBMIT", now_as_timestamp()
+    #print "BEFORE_SUBMIT", now_as_timestamp()
 
-    new_job = submit_job_with_package(package_dict, start_handler, start_args, job_options, package_path, master_uri,
-                                      args[2:])
+    new_job = submit_job_with_package(package_dict, start_handler, start_args, job_options, package_path, master_uri, args[2:])
 
-    # print "SUBMITTED", now_as_timestamp()
-
-    job_url = urllib.parse.urljoin(master_uri, "control/browse/job/%s" % new_job['job_id'])
-    # print "JOB_URL", job_url
+    #print "SUBMITTED", now_as_timestamp()
+    
+    job_url = urlparse.urljoin(master_uri, "control/browse/job/%s" % new_job['job_id'])
+    #print "JOB_URL", job_url
 
     result = await_job(new_job['job_id'], master_uri)
 
-    # print "GOT_RESULT", now_as_timestamp()
-
+    #print "GOT_RESULT", now_as_timestamp()
+    
     reflist = simple_retrieve_object_for_ref(result, "json", new_job['job_id'], master_uri)
-
+    
     decode_template = job_dict.get("result", None)
     if decode_template is None:
         return reflist
     else:
         try:
             decoded = recursive_decode(reflist, decode_template, new_job['job_id'], master_uri)
-            print(decoded)
+            print decoded
             return decoded
         except Exception as e:
-            print("Failed to decode due to exception", repr(e))
+            print "Failed to decode due to exception", repr(e)
             return reflist
-
-
+        
 def submit():
-    """Toned-down version of the above for automation purposes."""
+    """Toned-down version of the above for automation purposes."""        
     parser = OptionParser()
-    parser.add_option("-m", "--master", action="store", dest="master", help="Master URI", metavar="MASTER",
-                      default=ciel.config.get('cluster', 'master', 'http://localhost:8000'))
-
+    parser.add_option("-m", "--master", action="store", dest="master", help="Master URI", metavar="MASTER", default=ciel.config.get('cluster', 'master', 'http://localhost:8000'))
+    
     (options, args) = parser.parse_args()
     master_uri = options.master
 
     if master_uri is None or master_uri == "":
-        print(("Must specify a master with -m or `ciel config --set cluster.master URL`"), file=sys.stderr)
+        print >>sys.stderr, ("Must specify a master with -m or `ciel config --set cluster.master URL`")
         sys.exit(-1)
-
+    
     with open(args[0], "r") as package_file:
         job_dict = simplejson.load(package_file)
 
-    package_dict = job_dict.get("package", {})
+    package_dict = job_dict.get("package",{})
     start_dict = job_dict["start"]
     start_handler = start_dict["handler"]
     start_args = start_dict["args"]
@@ -424,68 +399,63 @@ def submit():
         job_options = job_dict["options"]
     except KeyError:
         job_options = {}
+    
 
     (package_path, _) = os.path.split(args[0])
 
-    new_job = submit_job_with_package(package_dict, start_handler, start_args, job_options, package_path, master_uri,
-                                      args[1:])
+    new_job = submit_job_with_package(package_dict, start_handler, start_args, job_options, package_path, master_uri, args[1:])
+    
+    job_browse_url = urlparse.urljoin(master_uri, "control/browse/job/%s" % new_job['job_id'])
+    print >>sys.stderr, "Information available at ", job_browse_url
 
-    job_browse_url = urllib.parse.urljoin(master_uri, "control/browse/job/%s" % new_job['job_id'])
-    print("Information available at ", job_browse_url, file=sys.stderr)
-
-    print(new_job['job_id'])
-
+    print new_job['job_id']
 
 def wait():
-    """Toned-down version of the above for automation purposes."""
+    """Toned-down version of the above for automation purposes."""        
     parser = OptionParser()
-    parser.add_option("-m", "--master", action="store", dest="master", help="Master URI", metavar="MASTER",
-                      default=ciel.config.get('cluster', 'master', 'http://localhost:8000'))
+    parser.add_option("-m", "--master", action="store", dest="master", help="Master URI", metavar="MASTER", default=ciel.config.get('cluster', 'master', 'http://localhost:8000'))
     parser.add_option("-t", "--timeout", action="store", dest="timeout", help="Timeout", metavar="DURATION", default=10)
-
+    
     (options, args) = parser.parse_args()
 
     master_uri = options.master
 
     if master_uri is None or master_uri == "":
-        print(("Must specify a master with -m or `ciel config --set cluster.master URL`"), file=sys.stderr)
+        print >>sys.stderr, ("Must specify a master with -m or `ciel config --set cluster.master URL`")
         sys.exit(-1)
 
     result = await_job(args[0], master_uri, options.timeout)
 
-    print("Job done?", result, file=sys.stderr)
+    print >>sys.stderr, "Job done?", result
 
     return result
 
-
 def result():
-    """Toned-down version of the above for automation purposes."""
-
+    """Toned-down version of the above for automation purposes."""        
+    
     parser = OptionParser()
-    parser.add_option("-m", "--master", action="store", dest="master", help="Master URI", metavar="MASTER",
-                      default=ciel.config.get('cluster', 'master', 'http://localhost:8000'))
+    parser.add_option("-m", "--master", action="store", dest="master", help="Master URI", metavar="MASTER", default=ciel.config.get('cluster', 'master', 'http://localhost:8000'))
     parser.add_option("-t", "--timeout", action="store", dest="timeout", help="Timeout", metavar="DURATION", default=10)
-    parser.add_option("-p", "--package", action="store", dest="package", help="Package file (for parsing format)",
-                      metavar="FILE", default=None)
+    parser.add_option("-p", "--package", action="store", dest="package", help="Package file (for parsing format)", metavar="FILE", default=None)
 
     (options, args) = parser.parse_args()
 
     if len(args) < 1:
-        print("Must specify the job ID on the command line", file=sys.stderr)
+        print >>sys.stderr, "Must specify the job ID on the command line"
         sys.exit(-1)
 
     master_uri = options.master
 
     if master_uri is None or master_uri == "":
-        print(("Must specify a master with -m or `ciel config --set cluster.master URL`"), file=sys.stderr)
+        print >>sys.stderr, ("Must specify a master with -m or `ciel config --set cluster.master URL`")
         sys.exit(-1)
 
     result = await_job(args[0], master_uri)
 
-    print(result)
+    print result
 
     if not result:
-        print("Timed out", file=sys.stderr)
+        print >>sys.stderr, "Timed out"
         sys.exit(-2)
 
     reflist = simple_retrieve_object_for_ref(result, "json", args[0], master_uri)
@@ -496,13 +466,13 @@ def result():
             decode_template = job_dict.get("result", None)
     else:
         return reflist
-
+        
     if decode_template is not None:
         try:
             decoded = recursive_decode(reflist, decode_template, args[0], master_uri)
             return decoded
         except Exception as e:
-            print("Failed to decode due to exception", repr(e))
+            print "Failed to decode due to exception", repr(e)
             return reflist
     else:
         return reflist
