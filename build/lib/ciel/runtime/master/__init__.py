@@ -34,7 +34,7 @@ import socket
 import subprocess
 import tempfile
 import urllib
-import urllib2
+import urllib.request as urllib2
 import sys
 from pkg_resources import Requirement, resource_filename
 import sys

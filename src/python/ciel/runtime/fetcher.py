@@ -33,7 +33,7 @@ from ciel.runtime.exceptions import ErrorReferenceError,\
     MissingInputException
 import hashlib
 import contextlib
-import urllib2
+import urllib.request as urllib2
 from urllib.parse import urlparse
 
 class AsyncPushThread:

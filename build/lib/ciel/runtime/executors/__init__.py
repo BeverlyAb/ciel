@@ -50,7 +50,7 @@ import ciel
 import traceback
 import stat
 import contextlib
-import urllib2
+import urllib.request as urllib2
 from urllib.parse import urlparse
 
 running_children = {}
