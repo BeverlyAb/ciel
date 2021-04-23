@@ -15,7 +15,7 @@ import optparse
 import sys
 import httplib2
 import simplejson
-import urlparse
+from urllib.parse import urlparse
 import os
 
 PROTOCOLS = {'json' : True, 'protobuf' : True, 'pickle' : True, 'line' : True}

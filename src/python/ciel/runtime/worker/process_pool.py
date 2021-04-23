@@ -20,7 +20,7 @@ import simplejson
 import shutil
 from datetime import datetime
 from ciel.public.references import SW2_FixedReference
-import urlparse
+from urllib.parse import urlparse
 from ciel.public.references import SWReferenceJSONEncoder
 import pickle
 import threading

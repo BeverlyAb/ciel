@@ -18,7 +18,7 @@ from ciel.public.references import SW2_ConcreteReference, SW2_FetchReference
 import ciel.runtime.remote_stat as remote_stat
 
 import pycurl
-import urlparse
+from urllib.parse import urlparse
 import ciel
 import logging
 

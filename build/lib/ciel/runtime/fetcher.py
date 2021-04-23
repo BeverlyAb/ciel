@@ -12,9 +12,9 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-from ciel.public.references import SW2_ConcreteReference, SW2_StreamReference, SW2_SocketStreamReference, \
-    SWDataValue, SWErrorReference, SW2_FixedReference, decode_datavalue, \
-    SW2_FetchReference, decode_datavalue_string, encode_datavalue, \
+from ciel.public.references import SW2_ConcreteReference, SW2_StreamReference, SW2_SocketStreamReference,\
+    SWDataValue, SWErrorReference, SW2_FixedReference, decode_datavalue,\
+    SW2_FetchReference, decode_datavalue_string, encode_datavalue,\
     SW2_TombstoneReference
 
 import tempfile
@@ -25,17 +25,16 @@ import threading
 import os
 from ciel.runtime.pycurl_data_fetch import HttpTransferContext
 from ciel.runtime.tcp_data_fetch import TcpTransferContext
-from ciel.runtime.block_store import filename_for_ref, producer_filename, \
+from ciel.runtime.block_store import filename_for_ref, producer_filename,\
     get_own_netloc, create_datavalue_file
-from ciel.runtime.producer import get_producer_for_id, \
+from ciel.runtime.producer import get_producer_for_id,\
     ref_from_external_file, ref_from_string
-from ciel.runtime.exceptions import ErrorReferenceError, \
+from ciel.runtime.exceptions import ErrorReferenceError,\
     MissingInputException
 import hashlib
 import contextlib
-import urllib.request, urllib.error, urllib.parse
-import urllib.parse
-
+import urllib2
+from urllib.parse import urlparse
 
 class AsyncPushThread:
 
@@ -88,14 +87,12 @@ class AsyncPushThread:
                 return
             else:
                 self.stream_started = True
-        ciel.log(
-            "Fetch for %s got more than %d bytes; commencing asynchronous push" % (self.ref, self.fetch_ip.chunk_size),
-            "EXEC", logging.DEBUG)
+        ciel.log("Fetch for %s got more than %d bytes; commencing asynchronous push" % (self.ref, self.fetch_ip.chunk_size), "EXEC", logging.DEBUG)
 
         self.copy_loop()
 
     def copy_loop(self):
-
+        
         try:
             self.fetch_ip.set_filename(self.write_filename, True)
             with open(self.read_filename, "r") as input_fp:
@@ -106,12 +103,10 @@ class AsyncPushThread:
                             output_fp.write(buf)
                             self.bytes_copied += len(buf)
                             with self.lock:
-                                if self.success is False or (
-                                        self.bytes_copied == self.bytes_available and self.fetch_done):
+                                if self.success is False or (self.bytes_copied == self.bytes_available and self.fetch_done):
                                     self.stream_done = True
                                     self.condvar.notify_all()
-                                    ciel.log("FIFO-push for %s complete (success: %s)" % (self.ref, self.success),
-                                             "EXEC", logging.DEBUG)
+                                    ciel.log("FIFO-push for %s complete (success: %s)" % (self.ref, self.success), "EXEC", logging.DEBUG)
                                     return
                             if len(buf) < 4096:
                                 # EOF, for now.
@@ -125,7 +120,7 @@ class AsyncPushThread:
             with self.lock:
                 self.stream_done = True
                 self.condvar.notify_all()
-
+                
     def result(self, success):
         with self.lock:
             if self.success is None:
@@ -150,15 +145,12 @@ class AsyncPushThread:
             ciel.log("FIFO-stream had begun: failing transfer", "EXEC", logging.ERROR)
             self.fetch_ip.cancel()
 
-
 class PlanFailedError(Exception):
     pass
 
-
 class FetchInProgress:
 
-    def __init__(self, ref, result_callback, reset_callback, start_filename_callback, start_fd_callback,
-                 string_callback, progress_callback, chunk_size, may_pipe, sole_consumer, must_block, task_record):
+    def __init__(self, ref, result_callback, reset_callback, start_filename_callback, start_fd_callback, string_callback, progress_callback, chunk_size, may_pipe, sole_consumer, must_block, task_record):
         self.lock = threading.RLock()
         self.result_callback = result_callback
         self.reset_callback = reset_callback
@@ -180,7 +172,7 @@ class FetchInProgress:
         self.cancelled = False
         self.success = None
         self.form_plan()
-
+        
     def form_plan(self):
         self.current_plan = 0
         self.plans = []
@@ -228,14 +220,12 @@ class FetchInProgress:
             self.set_filename(filename, True)
             self.result(True, None)
         else:
-            raise PlanFailedError("Plan use-local-file failed for %s: no such file %s" % (self.ref, filename),
-                                  "BLOCKSTORE", logging.DEBUG)
+            raise PlanFailedError("Plan use-local-file failed for %s: no such file %s" % (self.ref, filename), "BLOCKSTORE", logging.DEBUG)
 
     def attach_local_producer(self):
         producer = get_producer_for_id(self.ref.id)
         if producer is None:
-            raise PlanFailedError("Plan attach-local-producer failed for %s: not being produced here" % self.ref,
-                                  "BLOCKSTORE", logging.DEBUG)
+            raise PlanFailedError("Plan attach-local-producer failed for %s: not being produced here" % self.ref, "BLOCKSTORE", logging.DEBUG)
         else:
             is_pipe = producer.subscribe(self, try_direct=(self.may_pipe and self.sole_consumer))
             if is_pipe:
@@ -255,7 +245,7 @@ class FetchInProgress:
             raise PlanFailedError("TCP-Fetch currently only capable of delivering a pipe")
         self.producer = TcpTransferContext(self.ref, self.chunk_size, self)
         self.producer.start()
-
+                
     ### Start callbacks from above
     def result(self, success, result_ref=None):
         with self.lock:
@@ -280,7 +270,7 @@ class FetchInProgress:
             self.pusher_thread.progress(bytes)
         if self.progress_callback is not None:
             self.progress_callback(bytes)
-
+            
     def create_fifo(self):
         fifo_name = tempfile.mktemp(prefix="ciel-socket-fifo")
         os.mkfifo(fifo_name)
@@ -319,16 +309,15 @@ class FetchInProgress:
             except Exception as e:
                 ciel.log("Fetcher for %s failed to kill 'cat': %s" % (self.ref.id, repr(e)), "FETCHER", logging.ERROR)
 
-
 # After you call this, you'll get some callbacks:
 # 1. A start_filename or start_fd to announce that the transfer has begun and you can use the given filename or FD.
 # 1a. Or, if the data was very short, perhaps a string-callback which concludes the transfer.
 # 2. A series of progress callbacks to update you on how many bytes have been written
 # 3. Perhaps a reset callback, indicating the transfer has rewound to the beginning.
-# 4. A result callback, stating whether the transfer was successful,
+# 4. A result callback, stating whether the transfer was successful, 
 #    and if so, perhaps giving a reference to a local copy.
 # Only the final result, reset and start-filename callbacks are non-optional:
-# * If you omit start_fd_callback and a provider gives an FD, it will be cat'd into a FIFO
+# * If you omit start_fd_callback and a provider gives an FD, it will be cat'd into a FIFO 
 #   and the name of that FIFO supplied.
 # * If you omit string_callback and a provider supplies a string, it will be written to a file
 # * If you omit progress_callback, you won't get progress notifications until the transfer is complete.
@@ -337,25 +326,25 @@ class FetchInProgress:
 #             has read sufficient data, e.g. a pipe or socket. Must be False if you intend to wait for completion.
 # * sole_consumer: If False, a copy of the file will be made to local disk as well as being supplied to the consumer.
 #                  If True, the file might be directly supplied to the consumer, likely dependent on may_pipe.
-def fetch_ref_async(ref, result_callback, reset_callback, start_filename_callback,
-                    start_fd_callback=None, string_callback=None, progress_callback=None,
+def fetch_ref_async(ref, result_callback, reset_callback, start_filename_callback, 
+                    start_fd_callback=None, string_callback=None, progress_callback=None, 
                     chunk_size=67108864, may_pipe=False, sole_consumer=False,
                     must_block=False, task_record=None):
+
     if isinstance(ref, SWErrorReference):
         raise ErrorReferenceError(ref)
     if isinstance(ref, SW2_FixedReference):
         assert ref.fixed_netloc == get_own_netloc()
 
-    new_client = FetchInProgress(ref, result_callback, reset_callback,
-                                 start_filename_callback, start_fd_callback,
+    new_client = FetchInProgress(ref, result_callback, reset_callback, 
+                                 start_filename_callback, start_fd_callback, 
                                  string_callback, progress_callback, chunk_size,
                                  may_pipe, sole_consumer, must_block, task_record)
     new_client.start_fetch()
     return new_client
 
-
 class SynchronousTransfer:
-
+        
     def __init__(self, ref, task_record):
         self.ref = ref
         self.filename = None
@@ -383,19 +372,18 @@ class SynchronousTransfer:
 
     def wait(self):
         self.finished_event.wait()
-
-
+        
 class FileOrString:
-
+    
     def __init__(self, strdata=None, filename=None, completed_ref=None):
         self.str = strdata
         self.filename = filename
         self.completed_ref = completed_ref
-
+            
     @staticmethod
     def from_dict(in_dict):
         return FileOrString(**in_dict)
-
+    
     @staticmethod
     def from_safe_dict(in_dict):
         try:
@@ -403,13 +391,13 @@ class FileOrString:
         except KeyError:
             pass
         return FileOrString(**in_dict)
-
+    
     def to_dict(self):
         if self.str is not None:
             return {"strdata": self.str}
         else:
             return {"filename": self.filename}
-
+        
     def to_safe_dict(self):
         if self.str is not None:
             return {"strdata": encode_datavalue(self.str)}
@@ -429,11 +417,11 @@ class FileOrString:
         else:
             with open(self.filename, "r") as f:
                 return f.read()
-
-
+            
 def sync_retrieve_refs(refs, task_record, accept_string=False):
+    
     ctxs = []
-
+    
     for ref in refs:
         sync_transfer = SynchronousTransfer(ref, task_record)
         ciel.log("Synchronous fetch ref %s" % ref.id, "BLOCKSTORE", logging.DEBUG)
@@ -441,40 +429,37 @@ def sync_retrieve_refs(refs, task_record, accept_string=False):
             kwargs = {"string_callback": sync_transfer.return_string}
         else:
             kwargs = {}
-        fetch_ref_async(ref, sync_transfer.result, sync_transfer.reset, sync_transfer.start_filename,
-                        task_record=task_record, **kwargs)
+        fetch_ref_async(ref, sync_transfer.result, sync_transfer.reset, sync_transfer.start_filename, task_record=task_record, **kwargs)
         ctxs.append(sync_transfer)
-
+            
     for ctx in ctxs:
         ctx.wait()
-
-    failed_transfers = [x for x in ctxs if not x.success]
+            
+    failed_transfers = filter(lambda x: not x.success, ctxs)
     if len(failed_transfers) > 0:
-        raise MissingInputException(dict(
-            [(ctx.ref.id, SW2_TombstoneReference(ctx.ref.id, ctx.ref.location_hints)) for ctx in failed_transfers]))
+        raise MissingInputException(dict([(ctx.ref.id, SW2_TombstoneReference(ctx.ref.id, ctx.ref.location_hints)) for ctx in failed_transfers]))
     return ctxs
 
-
 def retrieve_files_or_strings_for_refs(refs, task_record):
+    
     ctxs = sync_retrieve_refs(refs, task_record, accept_string=True)
     return [FileOrString(ctx.str, ctx.filename, ctx.completed_ref) for ctx in ctxs]
 
-
 def retrieve_file_or_string_for_ref(ref, task_record):
+    
     return retrieve_files_or_strings_for_refs([ref], task_record)[0]
 
-
 def retrieve_filenames_for_refs(refs, task_record, return_ctx=False):
+        
     ctxs = sync_retrieve_refs(refs, task_record, accept_string=False)
     if return_ctx:
         return [FileOrString(None, ctx.filename, ctx.completed_ref) for ctx in ctxs]
     else:
         return [x.filename for x in ctxs]
 
-
 def retrieve_filename_for_ref(ref, task_record, return_ctx=False):
-    return retrieve_filenames_for_refs([ref], task_record, return_ctx)[0]
 
+    return retrieve_filenames_for_refs([ref], task_record, return_ctx)[0]
 
 def get_ref_for_url(url, version, task_id):
     """
@@ -483,7 +468,7 @@ def get_ref_for_url(url, version, task_id):
     HTTP ETags, which would raise an error if the data changed.
     """
 
-    parsed_url = urllib.parse.urlparse(url)
+    parsed_url = urlparse.urlparse(url)
     if parsed_url.scheme == 'swbs':
         # URL is in a Skywriting Block Store, so we can make a reference
         # for it directly.
@@ -496,7 +481,7 @@ def get_ref_for_url(url, version, task_id):
         hash = hashlib.sha1()
 
         # 1. Fetch URL to a file-like object.
-        with contextlib.closing(urllib.request.urlopen(url)) as url_file:
+        with contextlib.closing(urllib2.urlopen(url)) as url_file:
 
             # 2. Hash its contents and write it to disk.
             with tempfile.NamedTemporaryFile('wb', 4096, delete=False) as fetch_file:
@@ -515,11 +500,9 @@ def get_ref_for_url(url, version, task_id):
 
     return ref
 
-
 class OngoingFetch:
 
-    def __init__(self, ref, chunk_size, task_record, sole_consumer=False, make_sweetheart=False, must_block=False,
-                 can_accept_fd=False):
+    def __init__(self, ref, chunk_size, task_record, sole_consumer=False, make_sweetheart=False, must_block=False, can_accept_fd=False):
         self.lock = threading.Lock()
         self.condvar = threading.Condition(self.lock)
         self.bytes = 0
@@ -540,9 +523,9 @@ class OngoingFetch:
             fd_callback = self.set_fd
         else:
             fd_callback = None
-        self.fetch_ctx = fetch_ref_async(ref,
+        self.fetch_ctx = fetch_ref_async(ref, 
                                          result_callback=self.result,
-                                         progress_callback=self.progress,
+                                         progress_callback=self.progress, 
                                          reset_callback=self.reset,
                                          start_filename_callback=self.set_filename,
                                          start_fd_callback=fd_callback,
@@ -551,7 +534,7 @@ class OngoingFetch:
                                          must_block=must_block,
                                          sole_consumer=sole_consumer,
                                          task_record=task_record)
-
+        
     def progress(self, bytes):
         with self.lock:
             self.bytes = bytes
@@ -570,14 +553,14 @@ class OngoingFetch:
             self.success = False
             self.condvar.notify_all()
         # XXX: This is causing failures. Is it a vestige?
-        # self.client.cancel()
+        #self.client.cancel()
 
     def set_filename(self, filename, is_blocking):
         with self.lock:
             self.filename = filename
             self.file_blocking = is_blocking
             self.condvar.notify_all()
-
+            
     def set_fd(self, fd, is_blocking):
         with self.lock:
             self.fd = fd
@@ -592,7 +575,7 @@ class OngoingFetch:
                 return (self.filename, self.file_blocking)
             else:
                 return (None, None)
-
+        
     def get_fd(self):
         with self.lock:
             while self.fd is None and self.filename is None and self.success is not False:
@@ -627,11 +610,11 @@ class OngoingFetch:
             self.cancel()
         return False
 
-
 def retrieve_strings_for_refs(refs, task_record):
+
     ctxs = retrieve_files_or_strings_for_refs(refs, task_record)
     return [ctx.to_str() for ctx in ctxs]
 
-
 def retrieve_string_for_ref(ref, task_record):
+        
     return retrieve_strings_for_refs([ref], task_record)[0]

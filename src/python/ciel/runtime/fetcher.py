@@ -34,7 +34,7 @@ from ciel.runtime.exceptions import ErrorReferenceError,\
 import hashlib
 import contextlib
 import urllib2
-import urlparse
+from urllib.parse import urlparse
 
 class AsyncPushThread:
 

@@ -1,7 +1,7 @@
 import sys
 import simplejson
 import load
-import urlparse
+from urllib.parse import urlparse
 import httplib2
 import pickle
 import time

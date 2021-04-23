@@ -20,7 +20,7 @@ import sys
 import os
 import simplejson
 import httplib2
-from urlparse import urljoin
+from urllib.parse import urljoin
 from ciel.public.references import SWURLReference
 
 def main():

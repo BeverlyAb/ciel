@@ -14,7 +14,7 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 from optparse import OptionParser
 from ciel.runtime.object_cache import retrieve_object_for_ref
-from ciel.public.references import SWReferenceJSONEncoder, \
+from ciel.public.references import SWReferenceJSONEncoder,\
     json_decode_object_hook
 import sys
 import os
@@ -23,53 +23,48 @@ import httplib2
 from urllib.parse import urljoin
 from ciel.public.references import SWURLReference
 
-
 def main():
     parser = OptionParser()
-    parser.add_option("-m", "--master", action="store", dest="master", help="Master URI", metavar="MASTER",
-                      default=os.getenv("SW_MASTER"))
-    parser.add_option("-r", "--refs", action="store_true", dest="refs",
-                      help="Set this option to look up reference names in the master", default=False)
-    parser.add_option("-j", "--json", action="store_true", dest="json",
-                      help="Set this option to use JSON pretty printing", default=False)
+    parser.add_option("-m", "--master", action="store", dest="master", help="Master URI", metavar="MASTER", default=os.getenv("SW_MASTER"))
+    parser.add_option("-r", "--refs", action="store_true", dest="refs", help="Set this option to look up reference names in the master", default=False)
+    parser.add_option("-j", "--json", action="store_true", dest="json", help="Set this option to use JSON pretty printing", default=False)
     (options, args) = parser.parse_args()
-
+    
     if options.refs:
         ref_ids = args
-
+        
         for ref_id in ref_ids:
-
+            
             # Fetch information about the ref from the master.
             h = httplib2.Http()
             _, content = h.request(urljoin(options.master, '/refs/%s' % ref_id), 'GET')
             ref_info = simplejson.loads(content, object_hook=json_decode_object_hook)
             ref = ref_info['ref']
-
+            
             if options.json:
                 obj = retrieve_object_for_ref(ref, 'json', None)
                 simplejson.dump(obj, sys.stdout, cls=SWReferenceJSONEncoder, indent=4)
-                print()
+                print
             else:
                 fh = retrieve_object_for_ref(ref, 'handle', None)
                 for line in fh:
                     sys.stdout.write(line)
                 fh.close()
-
+            
     else:
-        urls = args
-
+        urls = args    
+        
         for url in urls:
             if options.json:
                 obj = retrieve_object_for_ref(SWURLReference([url]), 'json', None)
                 simplejson.dump(obj, sys.stdout, cls=SWReferenceJSONEncoder, indent=4)
-                print()
+                print
             else:
                 fh = retrieve_object_for_ref(SWURLReference([url]), 'handle', None)
-                print(fh)
+                print fh
                 for line in fh:
                     sys.stdout.write(line)
                 fh.close()
-
-
+        
 if __name__ == '__main__':
     main()

@@ -24,7 +24,7 @@ import ciel
 import threading
 import datetime
 import time
-import urlparse
+from urllib.parse import urlparse
 from ciel.runtime.executors.base import BaseExecutor
 
 class TaskExecutorPlugin(AsynchronousExecutePlugin):

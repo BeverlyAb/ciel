@@ -14,7 +14,7 @@
 from optparse import OptionParser
 import os
 import httplib2
-import urlparse
+from urllib.parse import urlparse
 import simplejson
 import math
 import random

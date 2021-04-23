@@ -26,7 +26,7 @@ import tempfile
 import cherrypy
 import os
 import socket
-import urlparse
+from urllib.parse import urlparse
 import simplejson
 import subprocess
 import sys
